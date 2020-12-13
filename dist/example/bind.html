@@ -1,0 +1,128 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Bind</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+</head>
+
+<body>
+    <div id='app'>
+        {{message}}
+    </div>
+    <script src="../index.js"></script>
+</body>
+<script>
+    // 发布者
+    class Dep{
+        constructor() {
+            this.subs = [];
+        }
+        addSubs(sub) {
+            if (this.subs.indexOf(sub) < 0) {
+                this.subs.push(sub);
+            }
+        }
+        notify() {
+            this.subs.forEach(item => item.update())
+        }
+    }
+    Dep.target = null;
+
+    // 订阅者
+    class Watcher {
+        constructor(obj, key, updateCb) {
+            this.data = obj;
+            this.key = key;
+            this.updateCb = updateCb;
+            this.value = null;
+            this.get();
+        }
+        get() {
+            Dep.target = this;
+            this.value = this.data[this.key];
+            Dep.target = null;
+            return this.value;
+        }
+        update() {
+            const oldValue = this.value;
+            const newValue = this.get();
+            this.updateCb(newValue, oldValue);
+        }
+    }
+
+    // observer类 劫持数据
+
+    class Observer {
+        constructor(obj) {
+            this.data = obj;
+            if (this.data == null || typeof this.data !== "object") {
+                return;
+            }
+            if (Array.isArray(this.data)) {
+                this.observeArray();
+            } else {
+                this.walk();
+            }
+        }
+        walk() {
+            for (let i in this.data) {
+                this.defineReactive(this.data, i);
+            }
+        }
+        observeArray() {
+            for (let i = 0; i < this.data.length; i++) {
+                observe(this.data[i]);
+            }
+        }
+        defineReactive(obj, key) {
+            let val = obj[key];
+            observe(val);
+            const dep = new Dep();
+            Object.defineProperty(obj, key, {
+                get() {
+                    if (Dep.target) {
+                        dep.addSubs(Dep.target)
+                    }
+                    return val;
+                },
+                set(newVal) {
+                    if (newVal === val) {
+                        return;
+                    }
+                    val = newVal;
+                    observe(val);
+                    dep.notify();
+                }
+            })
+        }
+    }
+    // 数据监测方法
+    function observe(data) {
+        new Observer(data);
+    }
+
+    // 写一个最简单的例子
+    const obj = {
+        a: 1,
+    };
+    observe(obj);
+    new Watcher(obj, "a", (newVal, oldVal) => {
+        console.log("newVal", newVal);
+        console.log("oldVal", oldVal + '\n');
+    });
+    obj.a = 2;
+    obj.a = 3;
+
+    // new Vue({
+    //     el:'#app',
+    //     data(){
+    //         return {
+    //             message: 'hello world'
+    //         }    
+    //     }
+    // });
+
+</script>
+</html>
