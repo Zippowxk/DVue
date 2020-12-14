@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <div></div>
+</body>
+<script>
+
+
+
+function parsePath (path) {
+  const segments = path.split('.')
+  return function (obj) {
+    for (let i = 0; i < segments.length; i++) {
+      if (!obj) return
+      obj = obj[segments[i]]
+    }
+    return obj
+  }
+}
+
+
+  // watcher 
+  // 订阅
+  class Watcher{
+    constructor(obj,key,cbs){
+      this.value = null
+      this.cbs = cbs
+      this.key = key
+      this.obj = obj;
+      this.getter = parsePath(key);
+      this.value = this.get();
+    }
+    get(){
+      let value;
+      Dep.target = this;  //全局唯一变量赋值 当前watcher ，在后面的this.getter.call时使用 把当前的watcher添加到依赖中
+      // value = this.obj[this.key]
+      value = this.getter.call(this.obj,this.obj)
+      Dep.target = null;
+      return value;
+    }
+    update(){
+      const old = this.value
+      const newValue = this.get();
+      this.cbs(newValue,old);
+    }
+  }
+  //发布
+  class Dep{
+    static target;
+    constructor(){
+     this.subs = [];
+    }
+    append(watcher){
+      if(this.subs.indexOf(watcher) <0){
+        this.subs.push(watcher)
+      }
+    }
+    notify(){
+      this.subs.forEach(watcher => {
+        watcher.update();
+      });
+    }
+  }
+
+  class Observer{
+    constructor(obj){
+      this.data = obj;
+      if (this.data == null || typeof this.data !== "object") {
+          return;
+      }
+      if(Array.isArray(obj)){
+        this.observeArray();
+      }else{
+        this.walk(obj)
+      }
+    }
+    walk(obj){
+      for (const key in obj) {
+        if (obj.hasOwnProperty(key)) {
+          // const element = object[key];
+          const value = obj[key]
+          defineReactive(obj,key,value)
+        }
+      }
+    }
+    observeArray(){
+      for (let i = 0; i < this.data.length; i++) {
+        observe(this.data[i]);
+      }
+    }
+  }
+  // 把obj中的key 设置为响应式
+  var defineReactive = function(obj,key,value){
+    let val = obj[key];
+    const dep = new Dep();
+    observe(val); // 对象中的对象 深度遍历
+    Object.defineProperty(obj,key,{
+      get(){
+        if(Dep.target){
+          dep.append(Dep.target) //把watcher放入依赖的数组中
+        }
+        return val;
+      },
+      set(newVal){
+        val = newVal;
+        observe(val); // 对深层中重新赋值的对象 进行响应式
+        // debugger
+        dep.notify(); //重新赋值时 通知
+      }
+    })
+    obj[key] = value;
+  }
+  // 定义所有的key 一个set 和get
+  var observe = function(obj){
+    new Observer(obj);
+  }
+
+
+  var set = function(target,key,val){
+    defineReactive(target,key,val)
+  }
+
+
+  // 测试对象
+  var obj = {
+    a:{b:1},
+    c:[
+      {x:1}
+    ],
+  }
+
+  observe(obj);
+  new Watcher(obj,'a',(newVal,val)=>{
+    console.log(newVal,val)
+  })
+  // 测试对象中的对象
+  new Watcher(obj.a,'b',(newVal,val)=>{
+    console.log("=======")
+    console.log(newVal,val)
+  })
+
+
+  // 测试对象添加属性
+  // 对象添加属性
+  // obj.d = "d"
+  set(obj,"d",'d1')
+  new Watcher(obj,'d',(newVal,val)=>{
+    console.log(newVal,val)
+  })
+
+  obj.d = "dddd",
+  obj.d = "dddd2"
+
+
+  // obj.a = {b:2};
+  
+  // obj.a = 3;
+  // obj.a = 4;
+
+  obj.a.b = 2;
+
+
+  // 测试数组
+  var arr = [{x:1}]
+  observe(arr)
+  new Watcher(arr[0],"x",(newVal,val)=>{
+    console.log("!!!!!")
+    console.log(newVal,val)
+  })
+  arr[0].x = 2
+</script>
+</html>

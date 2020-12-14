@@ -107,13 +107,14 @@
     const obj = {
         a: 1,
     };
-    observe(obj);
-    new Watcher(obj, "a", (newVal, oldVal) => {
+    observe(obj); // 增加
+    const w = new Watcher(obj, "a", (newVal, oldVal) => {
         console.log("newVal", newVal);
         console.log("oldVal", oldVal + '\n');
     });
     obj.a = 2;
     obj.a = 3;
+    console.log(w.get())
 
     // new Vue({
     //     el:'#app',
